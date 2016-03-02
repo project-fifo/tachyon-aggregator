@@ -11,5 +11,5 @@ sniffle.version
 tachyon_version.hrl
 \#*
 .#*
-
+TEST*
 _build

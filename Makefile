@@ -28,3 +28,6 @@ eqc-ci: clean all
 
 package: rel
 	make -C rel/pkg package
+
+rel:
+	$(REBAR) as prod release

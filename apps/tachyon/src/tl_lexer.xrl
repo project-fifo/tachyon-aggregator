@@ -36,3 +36,5 @@ strip(TokenChars, TokenLen) -> lists:sublist(TokenChars, 2, TokenLen - 2).
 unerl(TokenChars, TokenLen) -> lists:sublist(TokenChars, 6, TokenLen).
 
 a(L) -> list_to_atom(L).
+
+-dialyzer({nowarn_function, yyrev/2}).

@@ -13,6 +13,9 @@
 %% API
 -export([start_link/0, provide/0, handle/0, send/0]).
 -ignore_xref([start_link/0]).
+%% Those are needed for the compiled files they'll not be used
+%% otherwise
+-ignore_xref([provide/0, handle/0, send/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,

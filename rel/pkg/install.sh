@@ -20,13 +20,13 @@ case $2 in
             echo "User already exists, skipping creation."
         else
             echo Creating tachyon user ...
-            useradd -g $GROUP -d /var/db/tachyon -s /bin/false $USER
+            useradd -g $GROUP -d /data/tachyon -s /bin/false $USER
         fi
         echo Creating directories ...
-        mkdir -p /var/db/tachyon
-        mkdir -p /var/log/tachyon
-        chown -R $USER:$GROUP /var/db/tachyon
-        chown -R $USER:$GROUP /var/log/tachyon
+        mkdir -p /data/tachyon/db
+        mkdir -p /data/tachyon/log
+        mkdir -p /data/tachyon/etc
+        chown -R $USER:$GROUP /data/tachyon
         if [ -d /tmp/tachyon ]
         then
             chown -R $USER:$GROUP /tmp/tachyon/
@@ -35,21 +35,21 @@ case $2 in
     POST-INSTALL)
         echo Importing service ...
         svccfg import /opt/local/tachyon/share/tachyon.xml
-        CONFFILE=/opt/local/tachyon/etc/tachyon.conf
-	RULES=/opt/local/tachyon/etc/tachyon.rules
-	if [ ! -f "${RULES}" ]
-	then
-		cp ${RULES}.example ${RULES}
-	fi
+        CONFFILE=/data/tachyon/etc/tachyon.conf
+        RULES=/data/tachyon/etc/tachyon.rules
+
+        cp /opt/local/tachyon/etc/tachyon.conf.exmaple ${CONFFILE}.exmaple
+        cp /opt/local/tachyon/etc/tachyon.rules.exmaple ${RULES}.exmaple
+        if [ ! -f "${RULES}" ]
+        then
+            cp ${RULES}.example ${RULES}
+        fi
         if [ ! -f "${CONFFILE}" ]
         then
             echo "Creating new configuration from example file."
             cp ${CONFFILE}.example ${CONFFILE}
         else
             echo "Please make sure you update your config according to the update manual!"
-            #/opt/local/fifo-sniffle/share/update_config.sh ${CONFFILE}.example ${CONFFILE} > ${CONFFILE}.new &&
-            #    mv ${CONFFILE} ${CONFFILE}.old &&
-            #    mv ${CONFFILE}.new ${CONFFILE}
         fi
         ;;
 esac

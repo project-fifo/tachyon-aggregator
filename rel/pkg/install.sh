@@ -38,8 +38,8 @@ case $2 in
         CONFFILE=/data/tachyon/etc/tachyon.conf
         RULES=/data/tachyon/etc/tachyon.rules
 
-        cp /opt/local/tachyon/etc/tachyon.conf.exmaple ${CONFFILE}.exmaple
-        cp /opt/local/tachyon/etc/tachyon.rules.exmaple ${RULES}.exmaple
+        cp /opt/local/tachyon/etc/tachyon.conf.example ${CONFFILE}.example
+        cp /opt/local/tachyon/etc/tachyon.rules.example ${RULES}.example
         if [ ! -f "${RULES}" ]
         then
             cp ${RULES}.example ${RULES}

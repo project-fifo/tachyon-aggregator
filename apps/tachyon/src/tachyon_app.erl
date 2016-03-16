@@ -21,7 +21,8 @@
 
 
 start(_StartType, _StartArgs) ->
-    ok = tachyon_console:load_rules("etc/tachyon.rules"),
+    {ok, RulesFile} = application:get_env(tachyon, rules_file),
+    ok = tachyon_console:load_rules(RulesFile),
     tachyon_sup:start_link().
 
 stop(_State) ->

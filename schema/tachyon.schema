@@ -23,6 +23,12 @@
  [{default, {"127.0.0.1", 4161}},
   {datatype, ip}]}.
 
+%% @doc The rules file to load
+
+{mapping, "rules_file", "tachyon.rules_file",
+ [{default, "{{platform_etc_dir}}/tachyon.rules"},
+  {datatyle, file}]}.
+
 {translation,
  "tachyon.nsqlookupd",
  fun(Conf) ->

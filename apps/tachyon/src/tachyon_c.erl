@@ -178,4 +178,3 @@ header(Module) ->
 to_cap([C | R]) ->
     [C1] = string:to_upper([C]),
     [C1 | R].
-

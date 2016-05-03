@@ -8,6 +8,8 @@
                   stdlib,
                   lager,
                   ddb_client,
+                  dqe_idx,
+                  dqe_idx_pg,
                   ensq
                  ]},
   {mod, {tachyon_app, []}},

@@ -6,7 +6,7 @@
   {applications, [
                   kernel,
                   stdlib,
-                  lager,
+                  fifo_lager,
                   ddb_client,
                   dqe_idx,
                   dqe_idx_pg,

@@ -1,4 +1,4 @@
-VERSION=0.8.0
+VERSION=0.8.2
 COMPONENT_INTERNAL=tachyon
 COMPONENT=tachyon
 DEPS="erlang" "coreutils" "sudo"

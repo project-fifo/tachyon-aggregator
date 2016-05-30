@@ -77,11 +77,9 @@ c1(Target, Data) ->
 mk_dimensions(ignore, _Data) ->
     "";
 mk_dimensions({_Collection, Target}, Data) ->
-    io:format("~p -> ~p~n", [Target, Data]),
     D1 = [target_to_dim(T) || T <- Target, not is_list(T)],
     D2 = [constant_to_dim(C) || C <- Data],
     D = string:join(D1 ++ D2, ",\n                  "),
-    io:format("~s~n", [D]),
     ["    Dimensions = [", D, "],\n"] .
 
 
@@ -103,25 +101,23 @@ mk_target(ignore) ->
         "    {ok, State}";
 
 mk_target({Bucket, L}) ->
-    %%io:format("~p~n", [L]),
     L1 = [mk_elem(E) || E <- L],
-    case [mk_elem(Fn) || Fn = {_, _} <- L] of
-        [] ->
-            ["    Metrics = [", string:join(L1, ", "), "],\n"
-             "    putd(Dimensions, Metrics),\n"
-             "    putb(<<\"", a2l(Bucket), "\">>, Metrics, "
-             "SnapTime, V, State)"];
-        FNs ->
-            FNs1 = [["do_ignore(", F, $)] || F <- FNs],
-            ["    case ", string:join(FNs1, " orelse ")," of\n"
-             "        true -> {ok, State};\n"
-             "        _ ->\n"
-             "            Metrics = [", string:join(L1, ", "), "],\n"
-             "            putd(Dimensions, Metrics),\n"
-             "            putb(<<\"", a2l(Bucket), "\">>, Metrics, "
-             "SnapTime, V, State)\n"
-             "    end"]
-    end.
+    ["    Bucket = <<\"", a2l(Bucket), "\">>,\n"
+     "    Key = [", string:join(L1, ", "), "],\n"
+     "    Collection = Bucket,\n"
+     "    Metric = Key,\n",
+     case [mk_elem(Fn) || Fn = {_, _} <- L] of
+         [] ->
+             "    Ignore = false,\n";
+         FNs ->
+             FNs1 = [["do_ignore(", F, $)] || F <- FNs],
+             ["    Ignore = ",
+              string:join(FNs1, "\n      orelse "),
+              "\n"]
+     end,
+     "    putd(Ignore, Collection, Metric, Bucket, Key, Dimensions),\n"
+     "    putb(Ignore, Bucket, Key, SnapTime, V, State)"
+    ].
 
 mk_elem(instance) ->
     "integer_to_binary(Instance)";
@@ -175,7 +171,9 @@ header(Module) ->
      "    {ok, State}.\n"
      "message(M, _, State) ->\n"
      "    match(M, State).\n"
-     "putb(Bucket, Metric, Time, Value,\n"
+     "putb(true, _, _, _, _, State) ->"
+     "    {ok, State}"
+     "putb(_, Bucket, Metric, Time, Value,\n"
      "     State = #state{host = H, port = P, connections = Cs}) ->\n"
      "    C1 = case maps:find(Bucket, Cs) of\n"
      "             {ok, C} ->\n"
@@ -198,9 +196,20 @@ header(Module) ->
      "            {ok, State#state{connections = Cs1}}\n"
      "    end.\n"
      "do_ignore(ignore) -> true;\n"
-     "do_ignore(_) -> false.\n"
-     "putd(_Dimensions, _Metric) -> ok."
-    ].
+     "do_ignore(_) -> false.\n",
+     case application:get_env(dqe_idx, lookup_module, dqe_idx_ddb) of
+         dqe_idx_ddb ->
+             ["putd(_Ignore, _, _, _, _, _) ->\n"
+              "    ok.\n"];
+         _ ->
+             ["putd(true, _, _, _, _, _) ->\n"
+              "    ok.\n"
+              "putd(_, Collection, MetricL, Bucket, KeyL, Dimensiosn) ->"
+              "    Metric = dproto:metric_from_list(MetricL),\n"
+              "    Key = dproto:metric_from_list(KeyL),\n"
+              "    tachyon_idx:put(Collection, Metric, Bucket, "
+              "Key, Dimensiosn)."]
+     end].
 to_cap(A) when is_atom(A) ->
     to_cap(a2l(A));
 
@@ -210,4 +219,3 @@ to_cap([C | R]) ->
 
 a2l(A) ->
     atom_to_list(A).
-

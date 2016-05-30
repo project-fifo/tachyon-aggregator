@@ -6,10 +6,12 @@
   {applications, [
                   kernel,
                   stdlib,
+                  ebloom,
                   fifo_lager,
                   ddb_client,
                   dqe_idx,
                   dqe_idx_pg,
+                  dqe_idx_ddb,
                   ensq
                  ]},
   {mod, {tachyon_app, []}},

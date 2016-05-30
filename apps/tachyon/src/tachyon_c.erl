@@ -69,8 +69,29 @@ c1(Target, Data) ->
              false ->
                  R ++ I ++ "$i, V:64/integer>>"
          end,
-    R2 = ["match(", R1, ", State) ->\n", mk_target(Target), ";\n\n"],
+    R2 = ["match(", R1, ", State) ->\n",
+          mk_dimensions(Target, Data),
+          mk_target(Target), ";\n\n"],
     R2.
+
+mk_dimensions(ignore, _Data) ->
+    "";
+mk_dimensions({_Collection, Target}, Data) ->
+    io:format("~p -> ~p~n", [Target, Data]),
+    D1 = [target_to_dim(T) || T <- Target, not is_list(T)],
+    D2 = [constant_to_dim(C) || C <- Data],
+    D = string:join(D1 ++ D2, ",\n                  "),
+    io:format("~s~n", [D]),
+    ["    Dimensions = [", D, "],\n"] .
+
+
+target_to_dim({_, E}) ->
+    target_to_dim(E);
+target_to_dim(E) when is_atom(E) ->
+    ["{<<\"kstat\">>, <<\"", a2l(E), "\">>, ", to_cap(E), "}"].
+
+constant_to_dim({N, V}) ->
+    ["{<<\"kstat\">>, <<\"", a2l(N), "\">>, <<\"", V, "\">>}"].
 
 expand(gz) ->
     {uuid, "global"};
@@ -82,17 +103,22 @@ mk_target(ignore) ->
         "    {ok, State}";
 
 mk_target({Bucket, L}) ->
+    %%io:format("~p~n", [L]),
     L1 = [mk_elem(E) || E <- L],
     case [mk_elem(Fn) || Fn = {_, _} <- L] of
         [] ->
-            ["    putb(<<\"", atom_to_list(Bucket), "\">>, [", string:join(L1, ", "), "], "
+            ["    Metrics = [", string:join(L1, ", "), "],\n"
+             "    putd(Dimensions, Metrics),\n"
+             "    putb(<<\"", a2l(Bucket), "\">>, Metrics, "
              "SnapTime, V, State)"];
         FNs ->
             FNs1 = [["do_ignore(", F, $)] || F <- FNs],
             ["    case ", string:join(FNs1, " orelse ")," of\n"
              "        true -> {ok, State};\n"
              "        _ ->\n"
-             "            putb(<<\"", atom_to_list(Bucket), "\">>, [", string:join(L1, ", "), "], "
+             "            Metrics = [", string:join(L1, ", "), "],\n"
+             "            putd(Dimensions, Metrics),\n"
+             "            putb(<<\"", a2l(Bucket), "\">>, Metrics, "
              "SnapTime, V, State)\n"
              "    end"]
     end.
@@ -100,9 +126,9 @@ mk_target({Bucket, L}) ->
 mk_elem(instance) ->
     "integer_to_binary(Instance)";
 mk_elem({Fn, A}) when is_atom(A) ->
-    [atom_to_list(Fn), $(, to_cap(atom_to_list(A)), $)];
+    [a2l(Fn), $(, to_cap(a2l(A)), $)];
 mk_elem(A) when is_atom(A) ->
-    to_cap(atom_to_list(A));
+    to_cap(a2l(A));
 mk_elem(L) when is_list(L) ->
     ["<<\"", L, "\">>"].
 
@@ -110,13 +136,13 @@ mk_elem(L) when is_list(L) ->
 mk_bin(Data, Key, Ignore) ->
     case proplists:get_value(Key, Data) of
         undefined ->
-            mk_bin(atom_to_list(Key), true);
+            mk_bin(a2l(Key), true);
         true ->
-            mk_bin(to_cap(atom_to_list(Key)), Ignore);
+            mk_bin(to_cap(a2l(Key)), Ignore);
         Val when is_list(Val) ->
             mk_bin(Val);
         Name when is_atom(Name) ->
-            mk_bin(to_cap(atom_to_list(Name)), Ignore)
+            mk_bin(to_cap(a2l(Name)), Ignore)
     end.
 
 mk_bin(Val) ->
@@ -136,7 +162,7 @@ ignore(_) ->
     "".
 
 header(Module) ->
-    ["-module(", atom_to_list(Module) ,").\n"
+    ["-module(", a2l(Module) ,").\n"
      "-behaviour(ensq_channel_behaviour).\n"
      "-record(state, {host, port, connections = #{}}).\n"
      "-export([init/0, response/2, message/3, error/2]).\n"
@@ -173,8 +199,15 @@ header(Module) ->
      "    end.\n"
      "do_ignore(ignore) -> true;\n"
      "do_ignore(_) -> false.\n"
+     "putd(_Dimensions, _Metric) -> ok."
     ].
+to_cap(A) when is_atom(A) ->
+    to_cap(a2l(A));
 
 to_cap([C | R]) ->
     [C1] = string:to_upper([C]),
     [C1 | R].
+
+a2l(A) ->
+    atom_to_list(A).
+

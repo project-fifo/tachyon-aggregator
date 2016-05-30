@@ -29,12 +29,7 @@
 
 -define(SERVER, ?MODULE).
 
--record(state, {bloom = ebloom:new(?INITIAL_SIZE,
-                                   ?FALSE_POSITIVES,
-                                   erlang:system_time()),
-                prop = ?FALSE_POSITIVES,
-                size = 1000000,
-                count = 0}).
+-record(state, {bloom = bloom:sbf(?INITIAL_SIZE)}).
 
 %%%===================================================================
 %%% API
@@ -164,18 +159,9 @@ code_change(_OldVsn, State, _Extra) ->
 
 known(Bucket, Metric, State = #state{bloom = Bloom}) ->
     E = term_to_binary({Bucket, Metric}),
-    case ebloom:contains(Bloom, E) of
+    case bloom:member(E, Bloom) of
         true ->
             {true, State};
         _ ->
-            {false, insert(E, State)}
+            {false, State#state{bloom = bloom:add(E, Bloom)}}
     end.
-
-insert(E, State = #state{count = Size, size = Size, prop = Prop}) ->
-    NewSize = Size * 10,
-    {ok, Bloom} = ebloom:new(NewSize, Prop, erlang:system_time()),
-    State1 = State#state{count = 0, size = NewSize, bloom = Bloom},
-    insert(E, State1);
-insert(E, State = #state{bloom = Bloom}) ->
-    ebloom:insert(Bloom, E),
-    State.

@@ -102,14 +102,15 @@ handle_call(_Request, _From, State) ->
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast({put, _Collection, Metric, Bucket, Key, _Dimensions},
+handle_cast({put, _Collection, Metric, Bucket, Key, Dimensions},
             State) ->
     case known(Bucket, Key, State) of
         {true, State1} ->
             {noreply, State1};
         {false, State1} ->
-            io:format("New Metric: ~p -> ~p\n",
+            io:format("New Metric: ~p/~p -> ~p\n",
                       [dproto:metric_to_list(Metric),
+                       Dimensions,
                        dproto:metric_to_list(Key)]),
             %%ddb_idx:add(Collection, Metric, Bucket, Key, Dimensions),
             {noreply, State1}

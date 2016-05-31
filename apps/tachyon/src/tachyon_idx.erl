@@ -102,13 +102,15 @@ handle_call(_Request, _From, State) ->
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast({put, _Collection, _Metric, Bucket, Key, _Dimensions},
+handle_cast({put, _Collection, Metric, Bucket, Key, _Dimensions},
             State) ->
     case known(Bucket, Key, State) of
         {true, State1} ->
             {noreply, State1};
         {false, State1} ->
-            io:format("New Metric: ~p", [dproto:metric_to_list(Key)]),
+            io:format("New Metric: ~p -> ~p\n",
+                      [dproto:metric_to_list(Metric),
+                       dproto:metric_to_list(Key)]),
             %%ddb_idx:add(Collection, Metric, Bucket, Key, Dimensions),
             {noreply, State1}
     end;
@@ -157,8 +159,8 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 
-known(Bucket, Metric, State = #state{bloom = Bloom}) ->
-    E = term_to_binary({Bucket, Metric}),
+known(Bucket, Key, State = #state{bloom = Bloom}) ->
+    E = term_to_binary({Bucket, Key}),
     case bloom:member(E, Bloom) of
         true ->
             {true, State};

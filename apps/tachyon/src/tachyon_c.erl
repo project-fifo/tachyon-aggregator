@@ -109,7 +109,7 @@ mk_target(ignore) ->
 mk_target({Bucket, L}) ->
     L1 = [mk_elem(E) || E <- L],
     ["    Bucket = <<\"", a2l(Bucket), "\">>,\n"
-     "    Key = [", string:join(L1, ", "), "],\n"
+     "    DKey = [", string:join(L1, ", "), "],\n"
      "    Collection = Bucket,\n"
      "    Metric = Module,\n",
      case [mk_elem(Fn) || Fn = {_, _} <- L] of
@@ -121,8 +121,8 @@ mk_target({Bucket, L}) ->
               string:join(FNs1, "\n      orelse "),
               ",\n"]
      end,
-     "    putd(Ignore, Collection, Metric, Bucket, Key, Dimensions),\n"
-     "    putb(Ignore, Bucket, Key, SnapTime, V, State)"
+     "    putd(Ignore, Collection, Metric, Bucket, DKey, Dimensions),\n"
+     "    putb(Ignore, Bucket, DKey, SnapTime, V, State)"
     ].
 
 mk_elem(instance) ->

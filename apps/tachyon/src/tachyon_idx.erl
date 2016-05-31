@@ -25,7 +25,7 @@
 
 -define(FALSE_POSITIVES, 0.001).
 -define(INITIAL_SIZE, 1000000).
--define(MAX_LEN, 10).
+-define(MAX_LEN, 1000).
 
 -define(SERVER, ?MODULE).
 

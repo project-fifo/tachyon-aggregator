@@ -172,7 +172,7 @@ header(Module) ->
      "message(M, _, State) ->\n"
      "    match(M, State).\n"
      "putb(true, _, _, _, _, State) ->"
-     "    {ok, State}"
+     "    {ok, State};\n"
      "putb(_, Bucket, Metric, Time, Value,\n"
      "     State = #state{host = H, port = P, connections = Cs}) ->\n"
      "    C1 = case maps:find(Bucket, Cs) of\n"
@@ -203,7 +203,7 @@ header(Module) ->
               "    ok.\n"];
          _ ->
              ["putd(true, _, _, _, _, _) ->\n"
-              "    ok.\n"
+              "    ok;\n"
               "putd(_, Collection, MetricL, Bucket, KeyL, Dimensiosn) ->"
               "    Metric = dproto:metric_from_list(MetricL),\n"
               "    Key = dproto:metric_from_list(KeyL),\n"

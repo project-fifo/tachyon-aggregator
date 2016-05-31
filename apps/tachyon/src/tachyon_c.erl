@@ -111,7 +111,7 @@ mk_target({Bucket, L}) ->
     ["    Bucket = <<\"", a2l(Bucket), "\">>,\n"
      "    DKey = [", string:join(L1, ", "), "],\n"
      "    Collection = Bucket,\n"
-     "    Metric = Module,\n",
+     "    Metric = [Module],\n",
      case [mk_elem(Fn) || Fn = {_, _} <- L] of
          [] ->
              "    Ignore = false,\n";

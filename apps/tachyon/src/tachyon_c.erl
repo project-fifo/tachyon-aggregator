@@ -70,6 +70,12 @@ c1(Target, Data) ->
                  R ++ I ++ "$i, V:64/integer>>"
          end,
     R2 = ["match(", R1, ", State) ->\n",
+          case proplists:get_value(module, Data1) of
+              Val when is_list(Val) ->
+                  [    "Module = <<\"", Val, "\">>,\n"];
+              Name when is_atom(Name) ->
+                  ""
+          end,
           mk_dimensions(Target, Data),
           mk_target(Target), ";\n\n"],
     R2.
@@ -105,7 +111,7 @@ mk_target({Bucket, L}) ->
     ["    Bucket = <<\"", a2l(Bucket), "\">>,\n"
      "    Key = [", string:join(L1, ", "), "],\n"
      "    Collection = Bucket,\n"
-     "    Metric = Key,\n",
+     "    Metric = Module,\n",
      case [mk_elem(Fn) || Fn = {_, _} <- L] of
          [] ->
              "    Ignore = false,\n";
@@ -128,6 +134,15 @@ mk_elem(A) when is_atom(A) ->
 mk_elem(L) when is_list(L) ->
     ["<<\"", L, "\">>"].
 
+%% TODO: this is kind of ugly! we have a special case for
+%% module since we need that always to be set
+mk_bin(Data, module, Ignore) ->
+    case proplists:get_value(module, Data) of
+        Val when is_list(Val) ->
+            mk_bin(Val);
+        Name when is_atom(Name) ->
+            mk_bin(to_cap(a2l(Name)), Ignore)
+    end;
 
 mk_bin(Data, Key, Ignore) ->
     case proplists:get_value(Key, Data) of

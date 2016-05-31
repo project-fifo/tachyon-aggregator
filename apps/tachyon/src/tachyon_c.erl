@@ -113,7 +113,7 @@ mk_target({Bucket, L}) ->
              FNs1 = [["do_ignore(", F, $)] || F <- FNs],
              ["    Ignore = ",
               string:join(FNs1, "\n      orelse "),
-              "\n"]
+              ",\n"]
      end,
      "    putd(Ignore, Collection, Metric, Bucket, Key, Dimensions),\n"
      "    putb(Ignore, Bucket, Key, SnapTime, V, State)"

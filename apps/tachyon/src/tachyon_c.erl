@@ -89,8 +89,8 @@ mk_dimensions({_Collection, Target}, Data) ->
     ["    Dimensions = [", D, "],\n"] .
 
 
-target_to_dim({_, E}) ->
-    target_to_dim(E);
+target_to_dim({Fn, E}) ->
+    ["{<<\"kstat\">>, <<\"", a2l(E), "\">>, ", a2l(Fn), "(", to_cap(E), ")}"];
 target_to_dim(E) when is_atom(E) ->
     ["{<<\"kstat\">>, <<\"", a2l(E), "\">>, ", to_cap(E), "}"].
 

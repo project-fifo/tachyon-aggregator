@@ -69,8 +69,33 @@ c1(Target, Data) ->
              false ->
                  R ++ I ++ "$i, V:64/integer>>"
          end,
-    R2 = ["match(", R1, ", State) ->\n", mk_target(Target), ";\n\n"],
+    R2 = ["match(", R1, ", State) ->\n",
+          case proplists:get_value(module, Data1) of
+              Val when is_list(Val) ->
+                  [    "Module = <<\"", Val, "\">>,\n"];
+              Name when is_atom(Name) ->
+                  ""
+          end,
+          mk_dimensions(Target, Data),
+          mk_target(Target), ";\n\n"],
     R2.
+
+mk_dimensions(ignore, _Data) ->
+    "";
+mk_dimensions({_Collection, Target}, Data) ->
+    D1 = [target_to_dim(T) || T <- Target, not is_list(T)],
+    D2 = [constant_to_dim(C) || C <- Data],
+    D = string:join(D1 ++ D2, ",\n                  "),
+    ["    Dimensions = [", D, "],\n"] .
+
+
+target_to_dim({Fn, E}) ->
+    ["{<<\"kstat\">>, <<\"", a2l(E), "\">>, ", a2l(Fn), "(", to_cap(E), ")}"];
+target_to_dim(E) when is_atom(E) ->
+    ["{<<\"kstat\">>, <<\"", a2l(E), "\">>, ", to_cap(E), "}"].
+
+constant_to_dim({N, V}) ->
+    ["{<<\"kstat\">>, <<\"", a2l(N), "\">>, <<\"", V, "\">>}"].
 
 expand(gz) ->
     {uuid, "global"};
@@ -83,40 +108,52 @@ mk_target(ignore) ->
 
 mk_target({Bucket, L}) ->
     L1 = [mk_elem(E) || E <- L],
-    case [mk_elem(Fn) || Fn = {_, _} <- L] of
-        [] ->
-            ["    putb(<<\"", atom_to_list(Bucket), "\">>, [", string:join(L1, ", "), "], "
-             "SnapTime, V, State)"];
-        FNs ->
-            FNs1 = [["do_ignore(", F, $)] || F <- FNs],
-            ["    case ", string:join(FNs1, " orelse ")," of\n"
-             "        true -> {ok, State};\n"
-             "        _ ->\n"
-             "            putb(<<\"", atom_to_list(Bucket), "\">>, [", string:join(L1, ", "), "], "
-             "SnapTime, V, State)\n"
-             "    end"]
-    end.
+    ["    Bucket = <<\"", a2l(Bucket), "\">>,\n"
+     "    DKey = [", string:join(L1, ", "), "],\n"
+     "    Collection = Bucket,\n"
+     "    Metric = [Module],\n",
+     case [mk_elem(Fn) || Fn = {_, _} <- L] of
+         [] ->
+             "    Ignore = false,\n";
+         FNs ->
+             FNs1 = [["do_ignore(", F, $)] || F <- FNs],
+             ["    Ignore = ",
+              string:join(FNs1, "\n      orelse "),
+              ",\n"]
+     end,
+     "    putd(Ignore, Collection, Metric, Bucket, DKey, Dimensions),\n"
+     "    putb(Ignore, Bucket, DKey, SnapTime, V, State)"
+    ].
 
 mk_elem(instance) ->
     "integer_to_binary(Instance)";
 mk_elem({Fn, A}) when is_atom(A) ->
-    [atom_to_list(Fn), $(, to_cap(atom_to_list(A)), $)];
+    [a2l(Fn), $(, to_cap(a2l(A)), $)];
 mk_elem(A) when is_atom(A) ->
-    to_cap(atom_to_list(A));
+    to_cap(a2l(A));
 mk_elem(L) when is_list(L) ->
     ["<<\"", L, "\">>"].
 
+%% TODO: this is kind of ugly! we have a special case for
+%% module since we need that always to be set
+mk_bin(Data, module, Ignore) ->
+    case proplists:get_value(module, Data) of
+        Val when is_list(Val) ->
+            mk_bin(Val);
+        Name when is_atom(Name) ->
+            mk_bin(to_cap(a2l(Name)), Ignore)
+    end;
 
 mk_bin(Data, Key, Ignore) ->
     case proplists:get_value(Key, Data) of
         undefined ->
-            mk_bin(atom_to_list(Key), true);
+            mk_bin(a2l(Key), true);
         true ->
-            mk_bin(to_cap(atom_to_list(Key)), Ignore);
+            mk_bin(to_cap(a2l(Key)), Ignore);
         Val when is_list(Val) ->
             mk_bin(Val);
         Name when is_atom(Name) ->
-            mk_bin(to_cap(atom_to_list(Name)), Ignore)
+            mk_bin(to_cap(a2l(Name)), Ignore)
     end.
 
 mk_bin(Val) ->
@@ -136,7 +173,7 @@ ignore(_) ->
     "".
 
 header(Module) ->
-    ["-module(", atom_to_list(Module) ,").\n"
+    ["-module(", a2l(Module) ,").\n"
      "-behaviour(ensq_channel_behaviour).\n"
      "-record(state, {host, port, connections = #{}}).\n"
      "-export([init/0, response/2, message/3, error/2]).\n"
@@ -149,7 +186,9 @@ header(Module) ->
      "    {ok, State}.\n"
      "message(M, _, State) ->\n"
      "    match(M, State).\n"
-     "putb(Bucket, Metric, Time, Value,\n"
+     "putb(true, _, _, _, _, State) ->"
+     "    {ok, State};\n"
+     "putb(_, Bucket, Metric, Time, Value,\n"
      "     State = #state{host = H, port = P, connections = Cs}) ->\n"
      "    C1 = case maps:find(Bucket, Cs) of\n"
      "             {ok, C} ->\n"
@@ -172,10 +211,26 @@ header(Module) ->
      "            {ok, State#state{connections = Cs1}}\n"
      "    end.\n"
      "do_ignore(ignore) -> true;\n"
-     "do_ignore(_) -> false.\n"
-    ].
+     "do_ignore(_) -> false.\n",
+     case application:get_env(dqe_idx, lookup_module, dqe_idx_ddb) of
+         dqe_idx_ddb ->
+             ["putd(_Ignore, _, _, _, _, _) ->\n"
+              "    ok.\n"];
+         _ ->
+             ["putd(true, _, _, _, _, _) ->\n"
+              "    ok;\n"
+              "putd(_, Collection, MetricL, Bucket, KeyL, Dimensiosn) ->"
+              "    Metric = dproto:metric_from_list(MetricL),\n"
+              "    Key = dproto:metric_from_list(KeyL),\n"
+              "    tachyon_idx:put(Collection, Metric, Bucket, "
+              "Key, Dimensiosn)."]
+     end].
+to_cap(A) when is_atom(A) ->
+    to_cap(a2l(A));
 
 to_cap([C | R]) ->
     [C1] = string:to_upper([C]),
     [C1 | R].
 
+a2l(A) ->
+    atom_to_list(A).

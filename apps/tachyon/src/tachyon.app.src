@@ -1,13 +1,17 @@
 {application, tachyon,
  [
   {description, ""},
-  {vsn, "0.8.0p3"},
+  {vsn, "0.8.2"},
   {registered, []},
   {applications, [
                   kernel,
                   stdlib,
-                  lager,
+                  blume,
+                  fifo_lager,
                   ddb_client,
+                  dqe_idx,
+                  dqe_idx_pg,
+                  dqe_idx_ddb,
                   ensq
                  ]},
   {mod, {tachyon_app, []}},

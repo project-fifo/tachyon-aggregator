@@ -1,5 +1,7 @@
 REBAR = $(shell pwd)/rebar3
 PROJECT=tachyon
+APP=tachyon
+
 
 .PHONY: rel package version all
 all: version_header compile

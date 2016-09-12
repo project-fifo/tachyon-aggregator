@@ -3,7 +3,7 @@ PROJECT=tachyon
 APP=tachyon
 
 
-.PHONY: rel package version all
+.PHONY: rel package version all tree
 all: version_header compile
 
 include fifo.mk

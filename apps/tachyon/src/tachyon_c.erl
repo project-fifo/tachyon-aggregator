@@ -219,9 +219,7 @@ header(Module) ->
          _ ->
              ["putd(true, _, _, _, _, _) ->\n"
               "    ok;\n"
-              "putd(_, Collection, MetricL, Bucket, KeyL, Dimensiosn) ->"
-              "    Metric = dproto:metric_from_list(MetricL),\n"
-              "    Key = dproto:metric_from_list(KeyL),\n"
+              "putd(_, Collection, Metric, Bucket, Key, Dimensiosn) ->\n"
               "    tachyon_idx:put(Collection, Metric, Bucket, "
               "Key, Dimensiosn)."]
      end].

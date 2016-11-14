@@ -34,5 +34,6 @@ init([]) ->
     {ok, {{one_for_one, 5, 10},
           [
            ?CHILD(tachyon_idx, worker),
+           ?CHILD(tachyon_meta, worker),
            ?CHILD(tachyon_mps, worker),
            ?CHILD(tachyon_server, worker)]}}.

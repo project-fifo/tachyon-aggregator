@@ -12,6 +12,8 @@
                   dqe_idx,
                   dqe_idx_pg,
                   dqe_idx_ddb,
+                  libsniffle,
+                  fifo_dt,
                   ensq
                  ]},
   {mod, {tachyon_app, []}},

@@ -4,37 +4,26 @@
 %%% @doc
 %%%
 %%% @end
-%%% Created : 30 May 2016 by Heinz Nikolaus Gies <heinz@licenser.net>
+%%% Created : 14 Nov 2016 by Heinz Nikolaus Gies <heinz@licenser.net>
 %%%-------------------------------------------------------------------
--module(tachyon_idx).
+-module(tachyon_meta).
 
 -behaviour(gen_server).
 
 %% API
--export([start_link/0, put/5]).
-
+-export([start_link/0, get/1]).
 -ignore_xref([start_link/0]).
-
-
-%% CAlled from the compiled module
--ignore_xref([put/5]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
 
--define(FALSE_POSITIVES, 0.001).
--define(INITIAL_SIZE, 1000000).
--define(MAX_LEN, 1000).
-%% 1 hour
--define(MDATA_DELAY, 60*60).
-
 -define(SERVER, ?MODULE).
+-define(DELAY, 60).
 
 -record(state, {
-          bloom = bloom:sbf(?INITIAL_SIZE),
-          mdata_bloom = bloom:sbf(?INITIAL_SIZE),
-          last_update = 0
+          last_update = 0,
+          mdata = #{}
          }).
 
 %%%===================================================================
@@ -51,17 +40,9 @@
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
-put(Collection, Metric, Bucket, Key, Dimensions) ->
-    put(Collection, Metric, Bucket, Key, Dimensions, ?MAX_LEN).
+get(Short) ->
+    gen_server:call(?SERVER, {get, Short}).
 
-put(Collection, Metric, Bucket, Key, Dimensions, MaxLen) ->
-    case erlang:process_info(whereis(?SERVER), message_queue_len) of
-        {message_queue_len, N} when N > MaxLen ->
-            ok;
-        _ ->
-            gen_server:cast(
-              ?SERVER, {put, Collection, Metric, Bucket, Key, Dimensions})
-    end.
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
@@ -78,7 +59,6 @@ put(Collection, Metric, Bucket, Key, Dimensions, MaxLen) ->
 %% @end
 %%--------------------------------------------------------------------
 init([]) ->
-    dqe_idx:init(),
     {ok, #state{}}.
 
 %%--------------------------------------------------------------------
@@ -95,9 +75,24 @@ init([]) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_call(_Request, _From, State) ->
-    Reply = ok,
-    {reply, Reply, State}.
+
+handle_call({get, Short}, _From, State = #state{mdata = M}) ->
+    case maps:find(Short, M) of
+        {ok, Meta} ->
+            Reply = {ok, Meta},
+            {reply, Reply, State};
+        error ->
+            case maybe_update_map(State) of
+                {State1, {ok, M1}} ->
+                    State2 = State1#state{
+                               mdata = M1
+                              },
+                    Reply = maps:find(Short, M1),
+                    {reply, Reply, State2};
+                {State1, error} ->
+                    {reply, error, State1}
+            end
+    end.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -109,58 +104,8 @@ handle_call(_Request, _From, State) ->
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast({put, Collection, Metric, Bucket, Key, Dimensions},
-            State) ->
-    State1 = update_idx(Collection, Metric, Bucket, Key, Dimensions, State),
-    State2 = case lists:keyfind(<<"uuid">>, 2, Dimensions) of
-                 {<<"kstat">>, <<"uuid">>, <<"global">>} ->
-                     State1;
-                 {<<"kstat">>, <<"uuid">>, UUID} ->
-                     update_mdata(Collection, Metric, Bucket, Key, UUID,
-                                  State1);
-                 _ ->
-                     State1
-    end,
-    {noreply, State2};
 handle_cast(_Msg, State) ->
     {noreply, State}.
-
-update_idx(Collection, Metric, Bucket, Key, Dimensions, State) ->
-    case known(Bucket, Key, State) of
-        {true, StateK} ->
-            StateK;
-        {false, StateK} ->
-            dqe_idx:add(Collection, Metric, Bucket, Key, Dimensions),
-            StateK
-    end.
-
-update_mdata(Collection, Metric, Bucket, Key, UUID,
-             State = #state{last_update = T}) ->
-    case erlang:system_time(seconds) of
-        T1 when (T1 - T) > ?MDATA_DELAY ->
-            update_mdata_(Collection, Metric, Bucket, Key, UUID,
-                          State#state{mdata_bloom = bloom:sbf(?INITIAL_SIZE),
-                                      last_update = T1});
-        _ ->
-            update_mdata_(Collection, Metric, Bucket, Key, UUID, State)
-    end.
-
-update_mdata_(Collection, Metric, Bucket, Key, UUID,
-             State = #state{mdata_bloom = Bloom}) ->
-    case bloom:member(UUID, Bloom) of
-        true ->
-            State;
-        _ ->
-            case tachyon_meta:get(UUID) of
-                {ok, MData} ->
-                    io:format("Updating metadata: ~p / ~p~n", [UUID, MData]),
-                    dqe_idx:update(Collection, Metric, Bucket, Key, MData),
-                    State#state{mdata_bloom = bloom:add(UUID, Bloom)};
-                _ ->
-                    State
-            end
-    end.
-
 
 %%--------------------------------------------------------------------
 %% @private
@@ -204,11 +149,32 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 
-known(Bucket, Key, State = #state{bloom = Bloom}) ->
-    E = term_to_binary({Bucket, Key}),
-    case bloom:member(E, Bloom) of
-        true ->
-            {true, State};
+maybe_update_map(S = #state{last_update = T}) ->
+    case erlang:system_time(seconds) of
+        T1 when (T1 - T) > ?DELAY ->
+            {S#state{last_update = T1}, update_meta()};
         _ ->
-            {false, State#state{bloom = bloom:add(E, Bloom)}}
+            {S, error}
     end.
+
+update_meta() ->
+    case ls_vm:list([], true) of
+        {ok, Es} ->
+            Es1 = [map_vm(O) || {_, O} <- Es],
+            Es2 = maps:from_list(Es1),
+            {ok, Es2};
+        E ->
+            lager:warning("Metadata update errror: ~p", [E]),
+            E
+    end.
+
+
+map_vm(V) ->
+    UUID = <<Short:30/binary, _/binary>> = ft_vm:uuid(V),
+    O = [
+         {<<"fifo">>, <<"owner">>, ft_vm:owner(V)},
+         {<<"fifo">>, <<"uuid">>, UUID},
+         {<<"fifo">>, <<"hypervisor">>, ft_vm:hypervisor(V)},
+         {<<"fifo">>, <<"package">>, ft_vm:package(V)}
+        ],
+    {Short, O}.

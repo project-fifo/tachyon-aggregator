@@ -147,15 +147,15 @@ update_mdata(Collection, Metric, Bucket, Key, UUID,
 
 update_mdata_(Collection, Metric, Bucket, Key, UUID,
              State = #state{mdata_bloom = Bloom}) ->
-    case bloom:member(UUID, Bloom) of
+    E = term_to_binary({Bucket, Key}),
+    case bloom:member(E, Bloom) of
         true ->
             State;
         _ ->
             case tachyon_meta:get(UUID) of
                 {ok, MData} ->
-                    io:format("Updating metadata: ~p / ~p~n", [UUID, MData]),
                     dqe_idx:update(Collection, Metric, Bucket, Key, MData),
-                    State#state{mdata_bloom = bloom:add(UUID, Bloom)};
+                    State#state{mdata_bloom = bloom:add(E, Bloom)};
                 _ ->
                     State
             end

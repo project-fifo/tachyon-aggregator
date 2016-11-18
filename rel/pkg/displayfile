@@ -4,7 +4,7 @@
 |                                                                              |
 | Please have a look at the configuraiton files:                               |
 |                                                                              |
-|  * /opt/local/tachyon/etc/tachyon.conf                                       |
+|  * /data/tachyon/etc/tachyon.conf                                            |
 |                                                                              |
 `------------------------------------------------------------------------------'
 

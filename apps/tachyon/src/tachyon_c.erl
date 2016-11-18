@@ -72,7 +72,7 @@ c1(Target, Data) ->
     R2 = ["match(", R1, ", State) ->\n",
           case proplists:get_value(module, Data1) of
               Val when is_list(Val) ->
-                  [    "Module = <<\"", Val, "\">>,\n"];
+                  ["    Module = <<\"", Val, "\">>,\n"];
               Name when is_atom(Name) ->
                   ""
           end,

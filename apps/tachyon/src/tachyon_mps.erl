@@ -88,6 +88,7 @@ send() ->
 %%                     {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
+-dialyzer({nowarn_function, init/1}).
 init([]) ->
     erlang:send_after(1000, self(), tick),
     ets:new(?COUNTERS_PROV, [named_table, set, public, {write_concurrency, true}]),

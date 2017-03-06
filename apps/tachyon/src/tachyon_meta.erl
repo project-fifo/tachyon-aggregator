@@ -89,8 +89,8 @@ handle_call({get, Short}, _From, State = #state{mdata = M}) ->
                               },
                     Reply = maps:find(Short, M1),
                     {reply, Reply, State2};
-                {State1, error} ->
-                    {reply, error, State1}
+                {State1, Error} ->
+                    {reply, Error, State1}
             end
     end.
 

@@ -1,6 +1,4 @@
 -module(tachyon_c).
-
-
 -export([c/2]).
 
 %% <<_HostSize:32/integer,   _Host:_HostSize/binary,
